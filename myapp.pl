@@ -10,7 +10,7 @@ use DBI;
 my $DBH = DBI->connect(
     'dbi:mysql:Book',
     'root',
-    '*Hay990729',
+    '*Hay990729', #password(mysql)
     {
         RaiseError        => 1,
         AutoCommit        => 1,
