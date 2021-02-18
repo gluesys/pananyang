@@ -40,7 +40,7 @@ helper db_select => sub {
 
     return \%articles;
 };
-
+# 기본 시작 페이지는 loginPage
 get '/' => sub {
     my $self = shift;
 
@@ -49,7 +49,7 @@ get '/' => sub {
 ###############변경#################
 get '/:userid/list' => sub {
     my $self = shift;
-	#my $userid=$self->param('userid'); #사용자 id 문자열 가져오기
+	my $userid=$self->param('userid'); #사용자 id 문자열 가져오기
     my $sth = $DBH->prepare(qq{ SELECT id, name, title, content, wdate FROM MEMO });
     $sth->execute();
 
@@ -65,7 +65,7 @@ get '/:userid/list' => sub {
             wdate   => $wdate,
         };
     }
-
+    $self->session(USERID=>$userid);	
     $self->stash( articles => \%articles );
 	##추가##
 	$self->render('list');
@@ -96,7 +96,7 @@ get '/login' => sub {
 
   $self->render('login');
 };
-################추가seo#################
+################추가#################
 get '/protected'=>sub{
 	my $self=shift;
 	$self->render('protected');
@@ -124,16 +124,16 @@ post '/protected'=> sub{
 	}
 };
 #########################################
-get '/write' => sub {
+get '/:userid/write' => sub {
   my $self = shift;
  
   $self->render('write');
 };
 
-post '/write' => sub {
+post '/:userid/write' => sub {
     my $self = shift;
-
-    my $name    = $self->param('name');
+	
+    my $name    = $self->param('userid');#name form 정리 필요
     my $title   = $self->param('title');
     my $content = $self->param('content');
 
@@ -142,12 +142,11 @@ post '/write' => sub {
     });
     $sth->execute( $name, $title, $content );
 
-    $self->redirect_to( $self->url_for('/list') );
+    $self->redirect_to( $self->url_for('list') );
 };
 
-get '/read/:id' => sub {
+get '/:userid/read/:id' => sub {
     my $self = shift;
-
     my $input_id = $self->param('id');
 
     my $articles = $self->db_select ( $input_id );
@@ -160,7 +159,7 @@ get '/read/:id' => sub {
     $self->render('read');
 };
 
-get '/edit/:id' => sub {
+get '/:userid/edit/:id' => sub {
     my $self = shift;
 
     my $input_id = $self->param('id');
@@ -175,9 +174,10 @@ get '/edit/:id' => sub {
     $self->render('edit');
 };
 
-post '/edit' => sub {
+post '/:userid/edit' => sub {
     my $self = shift;
 
+	my $userid  = $self->param('userid');
     my $id      = $self->param('id');
     warn $id;
     my $name    = $self->param('name');
@@ -185,22 +185,23 @@ post '/edit' => sub {
     my $content = $self->param('content');
 
     my $sth = $DBH->prepare(qq{
-        UPDATE `memo` SET `name`=?,`title`=?,`content`=? WHERE `id`=$id
+        UPDATE `MEMO` SET `name`=?,`title`=?,`content`=? WHERE `id`=$id
     });
     $sth->execute( $name, $title, $content );
 
-    $self->redirect_to( $self->url_for('/list') );
+    $self->redirect_to( $self->url_for('/'.$userid.'/list') );
 };
 
-get '/delete/:id' => sub {
+get '/:userid/delete/:id' => sub {
     my $self = shift;
-
+	
+	my $userid= $self->param('userid');
     my $id = $self->param('id');
 
-    my $sth = $DBH->prepare(qq{ DELETE FROM `memo` WHERE `id`=$id });
+    my $sth = $DBH->prepare(qq{ DELETE FROM `MEMO` WHERE `id`=$id });
     $sth->execute();
 
-    $self->redirect_to( $self->url_for('/list') );
+    $self->redirect_to( $self->url_for('/'.$userid.'/list') );
 };
 
 app->start;
@@ -481,7 +482,7 @@ fieldset, img {
 @@ write.html.ep
 % layout 'default';
 % title 'WRITE';
-      <form action="/write" method="post">
+      <form action="/<%= session 'USERID' %>/write" method="post">
         <table width=580 border=0 cellpadding=2 cellspacing=1 bgcolor=#777777>
           <tr>
             <td height=20 colspan=4 align=center bgcolor=#999999>
@@ -518,7 +519,7 @@ fieldset, img {
             <table width=100%>
               <tr>
                 <td>
-                  <a href='/list' style="text-decoration:none;"><font color=white>[목록보기]</font></a>
+                  <a href='/<%= session 'USERID' %>/list' style="text-decoration:none;"><font color=white>[목록보기]</font></a>
                 </td>
               </tr>
             </table>
@@ -540,7 +541,7 @@ fieldset, img {
         % for my $id ( reverse sort { $a <=> $b } keys %$articles ) {
         <tr bgcolor="white">
           <td><%= $id %></td>
-          <td><a href="/read/<%= $id %>"><%= $articles->{$id}{title} %></a></td>
+          <td><a href="/<%=session 'USERID' %>/read/<%= $id %>"><%= $articles->{$id}{title} %></a></td>
           <td><%= $articles->{$id}{name} %></td>
           <td><%= $articles->{$id}{wdate} %></td>
         </tr>
@@ -550,7 +551,7 @@ fieldset, img {
             <table width=100%>
               <tr>
                 <td width=2000 align=center height=20>
-                  <a href='/write' style="text-decoration:none;"><font color=white>[글쓰기]</font></a>
+				<a href="/<%= session 'USERID' %>/write" style="text-decoration:none;"><font color=white>[글쓰기]</font></a>
                 </td>
               </tr>
             </table>
@@ -584,10 +585,10 @@ fieldset, img {
             <table width=100%>
               <tr>
                 <td width=2000 align=left height=20>
-                  <a href='/list' style="text-decoration:none;"><font color=white>[목록보기]</font></a>
-                  <a href='/write' style="text-decoration:none;"><font color=white>[글쓰기]</font></a>
-                  <a href='/edit/<%= $id %>' style="text-decoration:none;"><font color=white>[수정]</font></a>
-                  <a href='/delete/<%= $id %>' style="text-decoration:none;"><font color=white>[삭제]</font></a>
+                  <a href='/<%=session 'USERID' %>/list' style="text-decoration:none;"><font color=white>[목록보기]</font></a>
+                  <a href='/<%=session 'USERID' %>/write' style="text-decoration:none;"><font color=white>[글쓰기]</font></a>
+                  <a href='/<%=session 'USERID' %>/edit/<%= $id %>' style="text-decoration:none;"><font color=white>[수정]</font></a>
+                  <a href='/<%=session 'USERID' %>/delete/<%= $id %>' style="text-decoration:none;"><font color=white>[삭제]</font></a>
                 </td>
               </tr>
             </table>
@@ -597,7 +598,7 @@ fieldset, img {
 @@ edit.html.ep
 % layout 'default';
 % title 'EDIT';
-      <form action="/edit" method="post">
+      <form action="/<%=session 'USERID' %>/edit" method="post">
         <input type="hidden" name="id" value="<%= $id %>">
         <table width=580 border=0 cellpadding=2 cellspacing=1 bgcolor=#777777>
           <tr>
@@ -635,10 +636,10 @@ fieldset, img {
             <table width=100%>
               <tr>
                 <td>
-                  <a href='/list' style="text-decoration:none;"><font color=white>[목록보기]</font></a>
-                  <a href='/write' style="text-decoration:none;"><font color=white>[글쓰기]</font></a>
-                  <a href='/read/<%= $id %>' style="text-decoration:none;"><font color=white>[취소]</font></a>
-                  <a href='/delete/<%= $id %>' style="text-decoration:none;"><font color=white>[삭제]</font></a>
+                  <a href='/<%=session 'USERID' %>/list' style="text-decoration:none;"><font color=white>[목록보기]</font></a>
+                  <a href='/<%=session 'USERID' %>/write' style="text-decoration:none;"><font color=white>[글쓰기]</font></a>
+                  <a href='/<%=session 'USERID' %>/read/<%= $id %>' style="text-decoration:none;"><font color=white>[취소]</font></a>
+                  <a href='/<%=session 'USERID' %>/delete/<%= $id %>' style="text-decoration:none;"><font color=white>[삭제]</font></a>
                 </td>
               </tr>
             </table>
