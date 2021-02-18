@@ -9,8 +9,11 @@ use DBI;
 
 my $DBH = DBI->connect(
     'dbi:mysql:Book',
-    'root',
-    '*Hay990729', #password(mysql)
+	#DB오류시 확인
+	#'root',
+	#'*Hay990729', #password(mysql)
+	'user',
+	'0000',
     {
         RaiseError        => 1,
         AutoCommit        => 1,
@@ -43,10 +46,10 @@ get '/' => sub {
 
     $self->redirect_to( $self->url_for('/login') );
 };
-
-get '/list' => sub {
+###############변경#################
+get '/:userid/list' => sub {
     my $self = shift;
-
+	#my $userid=$self->param('userid'); #사용자 id 문자열 가져오기
     my $sth = $DBH->prepare(qq{ SELECT id, name, title, content, wdate FROM MEMO });
     $sth->execute();
 
@@ -64,6 +67,8 @@ get '/list' => sub {
     }
 
     $self->stash( articles => \%articles );
+	##추가##
+	$self->render('list');
 };
 
 ###################추가#################
@@ -91,8 +96,34 @@ get '/login' => sub {
 
   $self->render('login');
 };
-################추가#################
-
+################추가seo#################
+get '/protected'=>sub{
+	my $self=shift;
+	$self->render('protected');
+};
+post '/protected'=> sub{
+	my $self=shift;
+	my $ID=$self->param('loginId');
+	my $PASSWD=$self->param('password');
+	#####DB
+	my $sth=$DBH->prepare(qq{SELECT userid,passwd FROM USER});
+	$sth->execute();
+	my $select=0;
+    my %articles;
+	while(my @row=$sth->fetchrow_array){
+		my($userid, $passwd)=@row;
+		if(($ID eq $userid)&&($PASSWD eq $passwd)){
+			$select=1;
+		}
+	}
+	if($select==1){
+		$self->redirect_to($self->url_for($ID.'/list'));
+	}
+	else{
+		$self->redirect_to($self->url_for('/login'));
+	}
+};
+#########################################
 get '/write' => sub {
   my $self = shift;
  
@@ -107,7 +138,7 @@ post '/write' => sub {
     my $content = $self->param('content');
 
     my $sth = $DBH->prepare(qq{
-        INSERT INTO `memo` (`name`,`title`,`content`) VALUES (?,?,?)
+        INSERT INTO `MEMO` (`name`,`title`,`content`) VALUES (?,?,?)
     });
     $sth->execute( $name, $title, $content );
 
@@ -285,11 +316,11 @@ fieldset, img {
     background-color: #777;
 }
 </style>
-
+##############변경####################
 <div class="inner_login">
     <div class="login_pananyang">
 
-        <form action="/login" method="post">
+        <form action="/protected" method="post">
             <fieldset>
             <legend class="screen_out">로그인 정보 입력폼</legend>
             <div class="box_login">
@@ -312,6 +343,10 @@ fieldset, img {
         
     </div>
 </div>
+
+@@protected.html.ep
+%layout 'default';
+%title 'PROTECTED';
 
 ############로그인 HTML################
 ###########회원가입 HTML###############
@@ -491,6 +526,7 @@ fieldset, img {
         </tr>
         </table>
       </form>
+
 @@ list.html.ep
 % layout 'default';
 % title 'LIST';
