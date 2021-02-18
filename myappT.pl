@@ -423,11 +423,11 @@ fieldset, img {
             <div class="box_createID">
                 <div class="inp_text">
                 <label for="loginId" class="screen_out">아이디</label>
-                <input type="text" id="loginId" name="loginId" placeholder="20자 이내의 문자열을 입력하세요" >
+                <input type="text" id="userid" name="userid" placeholder="20자 이내의 문자열을 입력하세요" >
                 </div>
                 <div class="inp_text">
                 <label for="loginPw" class="screen_out">비밀번호</label>
-                <input type="password" id="loginId" name="password" placeholder="10자 이내의 숫자를 입력하세요" >
+                <input type="password" id="passwd" name="passwd" placeholder="10자 이내의 숫자를 입력하세요" >
                 </div>
             </div>
             <button type="submit" class="btn_createID"  anabled>가입하기</button> 
