@@ -32,6 +32,7 @@ helper db_select => sub {
     my ($wdate) = split / /, $date;
 
 
+
     $articles{$db_id} = {
         name    => $name,
         title   => $title,
