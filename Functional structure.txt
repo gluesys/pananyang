@@ -1,29 +1,30 @@
-loginPage[/]-----loginButton----1----listPage[/user1/list](전체 글 보기)----->
-		|(모든 userid 비교=>반복{if(입력id eq DBid)&&(입력pw eq DBpw)})
-		|	|
-		|	|--------undef----protectedPage[/protected]
-		|				(Re-login)
+loginPage[/]---------loginButton--------protectedPage[/protected](아이디 비번이 모두 유효한지 USER.table를 통해 확인)
+		|                             |
+		|                             |- 모두 맞으면 listPage로 이동 
+		|                             |- 틀리면 경고창[/alect]로 이동 후 다시 loginPage 이동
+		|				
 		|
-		|-----createId[/createId] => my $account=$DBH->prepare(~~~~);
-				   	      $account->execute($id,$passwd);
-    example) User.table	
+		|-----createId[/createId] (아이디 중복 검사)------ 중복되지 않으면 /login 으로 이동
+                                                         |--- 중복되면 경고창[/alect2]
+		
+    example) USER.table	
 		 |     userid	|   passwd	|
 		 |user1		| 0000		|
 		 |user2		| 1111		|
 	
 		
 -->listPage[/user1/list]----- write =>    my $sth=$DBH>prepare(~~~~);
-			   |[/user1/write} $sth->execute($name,$title,$content);
+			   |[/user1/write] $sth->execute($name,$title,$content,$file);
 			   |
 			   |-- search => listPage와 유사하나 where로 조건설정
-			   |[/user1/search]
+			   |
 			   |
 			   |-- (checkWriter) --- 1----read[/user1/3](3번째 글을 읽음)
 			   		      |     |  (edit,delete activate)
 					      |undef|  (edit,delete deactivate)
 			
-   example) Memo.table 	
-		|id	|name	|title	|content	|wdate			|
-		|1	|user1	|test1  | first	        |2021-02-12 11:12:36	|
-		|2	|user2	|test2	| second	|2021-02-13 13:21:45	|
+   example) MEMO.table 	
+		|id	|name	|title	|content	|wdate			|file          |
+		|1	|user1	|test1  | first	        |2021-02-12 11:12:36	|a.jpg         |
+		|2	|user2	|test2	| second	|2021-02-13 13:21:45	|myapp.pl      |
 		 
