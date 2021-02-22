@@ -6,14 +6,14 @@ use utf8;
 use Mojolicious::Lite;
 
 use DBI;
-#DB 설정
+
 my $DBH = DBI->connect(
     'dbi:mysql:Book',
 	#DB오류시 확인
-	#'root',
-	#'*Hay990729', #password(mysql)
-	'user',
-	'0000',
+	'root',
+	'*Hay990729', #password(mysql)
+	#'user',
+	#'0000',
     {
         RaiseError        => 1,
         AutoCommit        => 1,
@@ -21,7 +21,6 @@ my $DBH = DBI->connect(
     },
 );
 
-# 비슷한 구문 처리
 helper db_select => sub {
     my ( $self, $input_id ) = @_;
 
@@ -38,29 +37,28 @@ helper db_select => sub {
         content => $content,
         wdate   => $wdate,
     };
+
     return \%articles;
 };
 
-# 기본 시작 페이지는 /login
 get '/' => sub {
     my $self = shift;
 
     $self->redirect_to( $self->url_for('/login') );
 };
 
-# 리스트 보여주기
+
 get '/:userid/list' => sub {
     my $self = shift;
-
-	my $userid=$self->param('userid'); #사용자 id 문자열 가져오기
+    my $userid=$self->param('userid'); #사용자 id 문자열 가져오기
     my $sth = $DBH->prepare(qq{ SELECT id, name, title, content, wdate FROM MEMO });
     $sth->execute();
-	
-	# 게시글 가져오기 
+
     my %articles;
     while ( my @row = $sth->fetchrow_array ) {
         my ( $id, $name, $title, $content, $date ) = @row;
         my ($wdate) = split / /, $date;
+
         $articles{$id} = {
             name    => $name,
             title   => $title,
@@ -68,52 +66,70 @@ get '/:userid/list' => sub {
             wdate   => $wdate,
         };
     }
+
     $self->session(USERID=>$userid);	
     $self->stash( articles => \%articles );
 	$self->render('list');
 };
 
 #회원가입
-get '/createID' => sub { 
+get '/createID' => sub { #페이지를 열기
   my $self = shift;
 
   $self->render('createID');
 };
 
-#회원가입 할 id, passwd 저장 (!!중복 검사 미구현[참고 /protected])
-post '/createID' => sub { #디비로 저장하는 POST
+
+#회원가입
+post '/createID' => sub { #DB로 저장하는 POST
     my $self = shift;
  
     my $userid   = $self->param('userid');
     my $passwd   = $self->param('passwd');
- 
-    my $sth = $DBH->prepare(qq{
-        INSERT INTO `USER` (`userid`,`passwd`) VALUES (?,?)
-    });
-    $sth->execute($userid, $passwd);
-    #$self->redirect_to( $self->url_for('/login') ); #조건에 따라 경로가 달라져야함 추후 수정
-};
+    
+   #id 중복검사
+     my $sth1=$DBH->prepare(qq{SELECT userid FROM USER});
+        $sth1->execute();
+	my @id; 
+	my $result = 0;
 
-# 로그인 화면
+	while(my @row = $sth1->fetchrow_array){
+		@id = @row;
+			if($userid eq $id[0]){	
+				$result = 1;				
+		}
+	}
+	#이미 테이블에 존재하는 아이디라면 경고창으로 이동	
+	if ($result ==1){
+		$self->redirect_to($self->url_for('/alert2'));
+  		}
+	else{
+    		my $sth = $DBH->prepare(qq{
+        	INSERT INTO `USER` (`userid`,`passwd`) VALUES (?,?)});	
+    		$sth->execute($userid, $passwd);
+    		$self->redirect_to( $self->url_for('/login') ); 
+	}
+
+};
 get '/login' => sub {
   my $self = shift;
 
   $self->render('login');
 };
 
-# id, passwd가 유효한지 검사하는 페이지
+
+#로그인창에 입력한 정보가 USER의 데이터가 맞는지 확인
 get '/protected'=>sub{
 	my $self=shift;
 	$self->render('protected');
 };
 
+#로그인창에 입력한 정보가 USER의 데이터가 맞는지 확인
 post '/protected'=> sub{
 	my $self=shift;
-
 	my $ID=$self->param('loginId');
 	my $PASSWD=$self->param('password');
-	
-	# DB에서 데이터를 가져와 유효한지 확인
+	#####DB
 	my $sth=$DBH->prepare(qq{SELECT userid,passwd FROM USER});
 	$sth->execute();
 	my $select=0;
@@ -128,15 +144,27 @@ post '/protected'=> sub{
 		$self->redirect_to($self->url_for($ID.'/list'));
 	}
 	else{
-		$self->redirect_to($self->url_for('/login'));
+		$self->redirect_to($self->url_for('/alert'));
 	}
 };
 
-# 로그인
-##################################################
-# 게시판
+#로그인 실패시 알림
 
-# 게시글 쓰기
+get '/alert' => sub { #alert
+  my $self = shift;
+
+  $self->render('alert');
+};
+
+#회원가입 실패시 알림
+
+get '/alert2' => sub { #alert
+  my $self = shift;
+
+  $self->render('alert2');
+};
+
+
 get '/:userid/write' => sub {
   my $self = shift;
  
@@ -145,8 +173,8 @@ get '/:userid/write' => sub {
 
 post '/:userid/write' => sub {
     my $self = shift;
-	
-    my $name    = $self->param('userid');#name form 정리 필요
+
+    my $name    = $self->param('userid');
     my $title   = $self->param('title');
     my $content = $self->param('content');
 
@@ -158,9 +186,9 @@ post '/:userid/write' => sub {
     $self->redirect_to( $self->url_for('list') );
 };
 
-# 게시글 읽기
 get '/:userid/read/:id' => sub {
     my $self = shift;
+
     my $input_id = $self->param('id');
 
     my $articles = $self->db_select ( $input_id );
@@ -173,7 +201,6 @@ get '/:userid/read/:id' => sub {
     $self->render('read');
 };
 
-# 게시글 편집
 get '/:userid/edit/:id' => sub {
     my $self = shift;
 
@@ -191,8 +218,7 @@ get '/:userid/edit/:id' => sub {
 
 post '/:userid/edit' => sub {
     my $self = shift;
-
-	my $userid  = $self->param('userid');
+    my $userid  = $self->param('userid');
     my $id      = $self->param('id');
     warn $id;
     my $name    = $self->param('name');
@@ -206,12 +232,10 @@ post '/:userid/edit' => sub {
 
     $self->redirect_to( $self->url_for('/'.$userid.'/list') );
 };
- 
-#게시글 삭제
+
 get '/:userid/delete/:id' => sub {
     my $self = shift;
-
-	my $userid= $self->param('userid');
+    my $userid = $self->param('userid');
     my $id = $self->param('id');
 
     my $sth = $DBH->prepare(qq{ DELETE FROM `MEMO` WHERE `id`=$id });
@@ -222,7 +246,7 @@ get '/:userid/delete/:id' => sub {
 
 app->start;
 
-##############################################
+
 __DATA__
 @@ layouts/default.html.ep
 <!DOCTYPE html>
@@ -236,7 +260,7 @@ __DATA__
 </html>
 
 
-##########로그인##############
+#로그인 HTML
 @@ login.html.ep
 % layout 'default';
 % title 'SIGN IN';
@@ -335,10 +359,8 @@ fieldset, img {
     background-color: #777;
 }
 </style>
-
 <div class="inner_login">
     <div class="login_pananyang">
-
         <form action="/protected" method="post">
             <fieldset>
             <legend class="screen_out">로그인 정보 입력폼</legend>
@@ -367,8 +389,49 @@ fieldset, img {
 %layout 'default';
 %title 'PROTECTED';
 
-############로그인 HTML################
-###########회원가입 HTML###############
+
+
+#아이디/비밀번호 오류 경고
+@@alert.html.ep
+%layout 'default';
+%title 'SIGN IN ERROR';
+
+<head>
+
+<script>
+
+  alert("아이디/비밀번호를 다시 확인해주세요!");
+
+ location.href = "http://127.0.0.1:3000/login";
+
+</script>
+
+
+ </head>
+
+
+#회원가입 아이디 중복 경고
+@@alert2.html.ep
+%layout 'default';
+%title 'SIGN UP ERROR';
+
+<head>
+
+<script>
+
+  alert("해당 아이디는 이미 사용중 입니다.");
+
+ location.href = "http://127.0.0.1:3000/createID";
+
+</script>
+
+
+ </head>
+
+
+
+
+#회원가입 HTML
 @@ createID.html.ep
 % layout 'default';
 % title 'SIGN UP';
@@ -468,12 +531,8 @@ fieldset, img {
 }
 </style>
 
-
-
-
 <div class="inner_createID">
     <div class="createID_pananyang">
-
         <form action="/createID" method="post">
             <fieldset>
             <legend class="screen_out">회원가입 정보 입력폼</legend>
@@ -493,17 +552,23 @@ fieldset, img {
     </div>
 </div>
 
-###########회원가입 HTML###############
 
-########## 게시글 쓰기 ###############
 
 @@ write.html.ep
 % layout 'default';
 % title 'WRITE';
-      <form action="/<%= session 'USERID' %>/write" method="post">
-        <table width=580 border=0 cellpadding=2 cellspacing=1 bgcolor=#777777>
+
+<style>
+p{
+	text-align:right;
+}
+</style>
+
+     <form action="/<%= session 'USERID' %>/write" method="post">
+        <table width=580 border=0 cellpadding=2 cellspacing=1 bgcolor=#777>
+	<table style="margin-left:auto; margin-right:auto;">
           <tr>
-            <td height=20 colspan=4 align=center bgcolor=#999999>
+            <td height=20 colspan=4 align=center bgcolor=#777>
               <font color=white><b>글쓰기</b></font>
             </td>
           </tr>
@@ -537,24 +602,23 @@ fieldset, img {
             <table width=100%>
               <tr>
                 <td>
-                  <a href='/<%= session 'USERID' %>/list' style="text-decoration:none;"><font color=white>[목록보기]</font></a>
-                </td>
+		<p>
+                  <a href='/<%= session 'USERID' %>/list' style="text-decoration:none;"><font color=white>목록보기</font></a>
+                </p>
+		</td>
               </tr>
             </table>
           </td>
         </tr>
         </table>
       </form>
-
-###############################
-
-######## 리스트############### 
-
 @@ list.html.ep
 % layout 'default';
 % title 'LIST';
-        <table width=580 border=0 cellpadding=2 cellspacing=1 bgcolor=#999999>
+        <table width=580 border=0 cellpadding=2 cellspacing=1 bgcolor=#777>
         <tr height=20 colspan=4 align=center bgcolor=#CCCCCC >
+	<table style="margin-left:auto; margin-right:auto;">
+
           <td color=white>No. </td>
           <td>제목</td>
           <td>글쓴이</td>
@@ -573,22 +637,18 @@ fieldset, img {
             <table width=100%>
               <tr>
                 <td width=2000 align=center height=20>
-				<a href="/<%= session 'USERID' %>/write" style="text-decoration:none;"><font color=white>[글쓰기]</font></a>
+                  <a href="/<%= session 'USERID' %>/write" style="text-decoration:none;"><font color=white>글쓰기</font></a>
                 </td>
               </tr>
             </table>
           </td>
         </tr>
       </table>
-
-#################################
-
-######### 게시글 읽기 ##########
-
 @@ read.html.ep
 % layout 'default';
 % title 'READ';
       <table width=580 border=0 cellpadding=2 cellspacing=1 bgcolor=#777777>
+	<table style="margin-left:auto; margin-right:auto;">
         <tr>
           <td height=20 colspan=4 align=center bgcolor=#999999>
             <font color=white><b><%= $articles->{$id}{title} %></b></font>
@@ -612,27 +672,23 @@ fieldset, img {
             <table width=100%>
               <tr>
                 <td width=2000 align=left height=20>
-                  <a href='/<%=session 'USERID' %>/list' style="text-decoration:none;"><font color=white>[목록보기]</font></a>
-                  <a href='/<%=session 'USERID' %>/write' style="text-decoration:none;"><font color=white>[글쓰기]</font></a>
-                  <a href='/<%=session 'USERID' %>/edit/<%= $id %>' style="text-decoration:none;"><font color=white>[수정]</font></a>
-                  <a href='/<%=session 'USERID' %>/delete/<%= $id %>' style="text-decoration:none;"><font color=white>[삭제]</font></a>
+                  <a href='/<%=session 'USERID' %>/list' style="text-decoration:none;"><font color=white>목록보기</font></a>
+                  <a href='/<%=session 'USERID' %>/write' style="text-decoration:none;"><font color=white>글쓰기</font></a>
+                  <a href='/<%=session 'USERID' %>/edit/<%= $id %>' style="text-decoration:none;"><font color=white>수정</font></a>
+                  <a href='/<%=session 'USERID' %>/delete/<%= $id %>' style="text-decoration:none;"><font color=white>삭제</font></a>
                 </td>
               </tr>
             </table>
           </td>
         </tr>
       </table>
-
-##################################
-
-############편집 하기############
-
 @@ edit.html.ep
 % layout 'default';
 % title 'EDIT';
-      <form action="/<%=session 'USERID' %>/edit" method="post">
+       <form action="/<%=session 'USERID' %>/edit" method="post">
         <input type="hidden" name="id" value="<%= $id %>">
         <table width=580 border=0 cellpadding=2 cellspacing=1 bgcolor=#777777>
+	<table style="margin-left:auto; margin-right:auto;">
           <tr>
             <td height=20 colspan=4 align=center bgcolor=#999999>
               <font color=white><b>수정</b></font>
@@ -668,10 +724,10 @@ fieldset, img {
             <table width=100%>
               <tr>
                 <td>
-                  <a href='/<%=session 'USERID' %>/list' style="text-decoration:none;"><font color=white>[목록보기]</font></a>
-                  <a href='/<%=session 'USERID' %>/write' style="text-decoration:none;"><font color=white>[글쓰기]</font></a>
-                  <a href='/<%=session 'USERID' %>/read/<%= $id %>' style="text-decoration:none;"><font color=white>[취소]</font></a>
-                  <a href='/<%=session 'USERID' %>/delete/<%= $id %>' style="text-decoration:none;"><font color=white>[삭제]</font></a>
+                  <a href='/<%=session 'USERID' %>/list' style="text-decoration:none;"><font color=white>목록보기</font></a>
+                  <a href='/<%=session 'USERID' %>/write' style="text-decoration:none;"><font color=white>글쓰기</font></a>
+                  <a href='/<%=session 'USERID' %>/read/<%= $id %>' style="text-decoration:none;"><font color=white>취소</font></a>
+                  <a href='/<%=session 'USERID' %>/delete/<%= $id %>' style="text-decoration:none;"><font color=white>삭제</font></a>
                 </td>
               </tr>
             </table>
