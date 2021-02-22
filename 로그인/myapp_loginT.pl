@@ -31,6 +31,8 @@ helper db_select => sub {
     my ( $db_id, $name, $title, $content, $date ) = $sth->fetchrow_array;
     my ($wdate) = split / /, $date;
 
+
+
     $articles{$db_id} = {
         name    => $name,
         title   => $title,
