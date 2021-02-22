@@ -6,7 +6,7 @@ use utf8;
 use Mojolicious::Lite;
 
 use DBI;
-
+#DB 설정
 my $DBH = DBI->connect(
     'dbi:mysql:Book',
 	#DB오류시 확인
@@ -21,6 +21,7 @@ my $DBH = DBI->connect(
     },
 );
 
+# 비슷한 구문 처리
 helper db_select => sub {
     my ( $self, $input_id ) = @_;
 
@@ -31,35 +32,35 @@ helper db_select => sub {
     my ( $db_id, $name, $title, $content, $date ) = $sth->fetchrow_array;
     my ($wdate) = split / /, $date;
 
-
-
     $articles{$db_id} = {
         name    => $name,
         title   => $title,
         content => $content,
         wdate   => $wdate,
     };
-
     return \%articles;
 };
-# 기본 시작 페이지는 loginPage
+
+# 기본 시작 페이지는 /login
 get '/' => sub {
     my $self = shift;
 
     $self->redirect_to( $self->url_for('/login') );
 };
-###############변경#################
+
+# 리스트 보여주기
 get '/:userid/list' => sub {
     my $self = shift;
+
 	my $userid=$self->param('userid'); #사용자 id 문자열 가져오기
     my $sth = $DBH->prepare(qq{ SELECT id, name, title, content, wdate FROM MEMO });
     $sth->execute();
-
+	
+	# 게시글 가져오기 
     my %articles;
     while ( my @row = $sth->fetchrow_array ) {
         my ( $id, $name, $title, $content, $date ) = @row;
         my ($wdate) = split / /, $date;
-
         $articles{$id} = {
             name    => $name,
             title   => $title,
@@ -69,17 +70,17 @@ get '/:userid/list' => sub {
     }
     $self->session(USERID=>$userid);	
     $self->stash( articles => \%articles );
-	##추가##
 	$self->render('list');
 };
 
-###################추가#################
-get '/createID' => sub { #페이지를 열기
+#회원가입
+get '/createID' => sub { 
   my $self = shift;
 
   $self->render('createID');
 };
 
+#회원가입 할 id, passwd 저장 (!!중복 검사 미구현[참고 /protected])
 post '/createID' => sub { #디비로 저장하는 POST
     my $self = shift;
  
@@ -93,21 +94,26 @@ post '/createID' => sub { #디비로 저장하는 POST
     #$self->redirect_to( $self->url_for('/login') ); #조건에 따라 경로가 달라져야함 추후 수정
 };
 
+# 로그인 화면
 get '/login' => sub {
   my $self = shift;
 
   $self->render('login');
 };
-################추가#################
+
+# id, passwd가 유효한지 검사하는 페이지
 get '/protected'=>sub{
 	my $self=shift;
 	$self->render('protected');
 };
+
 post '/protected'=> sub{
 	my $self=shift;
+
 	my $ID=$self->param('loginId');
 	my $PASSWD=$self->param('password');
-	#####DB
+	
+	# DB에서 데이터를 가져와 유효한지 확인
 	my $sth=$DBH->prepare(qq{SELECT userid,passwd FROM USER});
 	$sth->execute();
 	my $select=0;
@@ -125,7 +131,12 @@ post '/protected'=> sub{
 		$self->redirect_to($self->url_for('/login'));
 	}
 };
-#########################################
+
+# 로그인
+##################################################
+# 게시판
+
+# 게시글 쓰기
 get '/:userid/write' => sub {
   my $self = shift;
  
@@ -147,6 +158,7 @@ post '/:userid/write' => sub {
     $self->redirect_to( $self->url_for('list') );
 };
 
+# 게시글 읽기
 get '/:userid/read/:id' => sub {
     my $self = shift;
     my $input_id = $self->param('id');
@@ -161,6 +173,7 @@ get '/:userid/read/:id' => sub {
     $self->render('read');
 };
 
+# 게시글 편집
 get '/:userid/edit/:id' => sub {
     my $self = shift;
 
@@ -193,10 +206,11 @@ post '/:userid/edit' => sub {
 
     $self->redirect_to( $self->url_for('/'.$userid.'/list') );
 };
-
+ 
+#게시글 삭제
 get '/:userid/delete/:id' => sub {
     my $self = shift;
-	
+
 	my $userid= $self->param('userid');
     my $id = $self->param('id');
 
@@ -207,6 +221,8 @@ get '/:userid/delete/:id' => sub {
 };
 
 app->start;
+
+##############################################
 __DATA__
 @@ layouts/default.html.ep
 <!DOCTYPE html>
@@ -220,7 +236,7 @@ __DATA__
 </html>
 
 
-#######로그인 HTML###############
+##########로그인##############
 @@ login.html.ep
 % layout 'default';
 % title 'SIGN IN';
@@ -319,7 +335,7 @@ fieldset, img {
     background-color: #777;
 }
 </style>
-##############변경####################
+
 <div class="inner_login">
     <div class="login_pananyang">
 
@@ -479,7 +495,7 @@ fieldset, img {
 
 ###########회원가입 HTML###############
 
-
+########## 게시글 쓰기 ###############
 
 @@ write.html.ep
 % layout 'default';
@@ -530,6 +546,10 @@ fieldset, img {
         </table>
       </form>
 
+###############################
+
+######## 리스트############### 
+
 @@ list.html.ep
 % layout 'default';
 % title 'LIST';
@@ -560,6 +580,11 @@ fieldset, img {
           </td>
         </tr>
       </table>
+
+#################################
+
+######### 게시글 읽기 ##########
+
 @@ read.html.ep
 % layout 'default';
 % title 'READ';
@@ -597,6 +622,11 @@ fieldset, img {
           </td>
         </tr>
       </table>
+
+##################################
+
+############편집 하기############
+
 @@ edit.html.ep
 % layout 'default';
 % title 'EDIT';
